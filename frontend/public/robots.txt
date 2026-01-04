@@ -1,0 +1,8 @@
+# https://www.robotstxt.org/robotstxt.html
+# Allow search engines to index the main site
+User-agent: *
+Allow: /
+
+# Block indexing of dashboard and loading pages (contain user data)
+Disallow: /dashboard
+Disallow: /loading
