@@ -1,0 +1,30 @@
+AI Summary (Short)
+The infrastructure is organized into functional segments for web content, user accounts, email, and API services.
+
+DNS settings include standard routing for website traffic and established mail server priorities.
+
+Network access is limited to standard communication channels, with non-essential ports remaining closed.
+
+The environment uses a modern technology stack supported by a valid, long-term security certificate.
+
+Detailed Analysis
+Subdomains The scan identified www, accounts, mail, and api. These represent specific entry points for different services, such as the main website, user authentication, and email access. This indicates a organized distribution of services across the domain.
+
+DNS Records
+
+The data shows A records for IP mapping, MX records for mail routing, and a TXT record for email verification. The SPF record (v=spf1 include:zoho.com ~all) lists which servers are authorized to send email on behalf of the domain.
+
+Open Ports Ports 80 and 443 are active, while port 8080 is inactive. This is a standard configuration that allows for regular and encrypted web traffic while keeping common alternative ports inaccessible to the public.
+
+HTTP Behavior The domain uses a 301 redirect, which automatically forwards visitors to a specific destination, such as the secure version of the site. The server header identifies a custom gateway used by the organization to manage incoming requests.
+
+SSL / Security A valid SSL certificate is in place with an expiration date of September 18, 2026. This certificate confirms that the domain identity is verified and that data transmitted between the user and the server is encrypted.
+
+Technology Stack
+
+The site is built using Nginx for web serving, Java for backend logic, and React for the user interface. These components work together to deliver a functional and responsive web application.
+
+Overall Risk Assessment
+Low
+
+The passive reconnaissance data shows an infrastructure that follows standard industry conventions. There are no exposed management interfaces, the security certificates are up to date, and the DNS records are configured to support secure communication.

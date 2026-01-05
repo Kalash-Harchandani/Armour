@@ -73,9 +73,13 @@ const Home = () => {
       return;
     }
     
-    // Clear error and navigate
+    // Clear error and save domain to localStorage
     setError('');
     const cleanDomain = trimmedDomain.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+    
+    // Save domain temporarily to localStorage
+    localStorage.setItem('currentDomain', cleanDomain);
+    
     navigate('/loading', { state: { domain: cleanDomain } });
   };
 

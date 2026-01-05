@@ -24,6 +24,9 @@ const Loading = () => {
       return;
     }
 
+    // Save domain to localStorage immediately when loading starts
+    localStorage.setItem('currentDomain', domain);
+
     let messageIndex = 0;
 
     // Simulate loading progress with messages
@@ -39,6 +42,9 @@ const Loading = () => {
     const completeLoading = () => {
       // Mark that recon has been started
       localStorage.setItem('reconStarted', 'true');
+      
+      // Ensure domain is saved in localStorage
+      localStorage.setItem('currentDomain', domain);
       
       // Complete loading
       setLoadingText('Reconnaissance complete!');
