@@ -209,6 +209,87 @@ body {
   max-width: 600px;
 }
 
+/* Scan Options Styling */
+.scan-options-container {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.scan-info-header {
+  position: relative;
+  padding: 0.5rem 0;
+}
+
+.scan-info-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.5rem;
+  z-index: 1000;
+  min-width: 300px;
+  max-width: 400px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@media (max-width: 768px) {
+  .scan-info-tooltip {
+    left: 0;
+    transform: none;
+    min-width: 280px;
+    max-width: 100%;
+  }
+}
+
+.tooltip-content {
+  background: rgba(20, 20, 20, 0.95);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(0, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  color: #ffffff;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.tooltip-content h6 {
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.tooltip-content p {
+  margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.tooltip-content strong {
+  color: #00ffff;
+}
+
+.scan-btn {
+  min-width: 160px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  font-size: 0.9rem;
+  padding: 0.6rem 1.5rem;
+}
+
+.scan-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 255, 255, 0.3);
+}
+
+.scan-btn small {
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
 /* Scroll Animation */
 @keyframes bounce {
   0%, 20%, 50%, 80%, 100% {
@@ -523,6 +604,81 @@ body {
   }
 }
 
+/* Gemini Analysis Styles */
+.gemini-analysis-content {
+  padding: 1.5rem;
+}
+
+.gemini-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gemini-bullet-point {
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.6;
+}
+
+.gemini-bullet-point i {
+  margin-top: 0.5rem;
+}
+
+.gemini-detailed {
+  display: flex;
+  flex-direction: column;
+}
+
+.gemini-section-item {
+  border-left: 2px solid rgba(0, 255, 255, 0.3);
+  padding-left: 1.5rem;
+  transition: border-color 0.3s ease;
+}
+
+.gemini-section-item:hover {
+  border-left-color: rgba(0, 255, 255, 0.6);
+}
+
+.gemini-section-content {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.gemini-risk-assessment {
+  padding: 1.5rem;
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.risk-badge {
+  padding: 0.75rem 1.5rem;
+  background: rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 6px;
+  display: inline-block;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+}
+
+.risk-badge.text-success {
+  background: rgba(0, 255, 0, 0.1);
+  border-color: rgba(0, 255, 0, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+}
+
+.risk-badge.text-warning {
+  background: rgba(255, 193, 7, 0.1);
+  border-color: rgba(255, 193, 7, 0.3);
+  box-shadow: 0 0 15px rgba(255, 193, 7, 0.2);
+}
+
+.risk-badge.text-danger {
+  background: rgba(255, 0, 0, 0.1);
+  border-color: rgba(255, 0, 0, 0.3);
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .main-heading {
@@ -542,5 +698,13 @@ body {
   .minimal-spinner {
     width: 50px;
     height: 50px;
+  }
+
+  .gemini-analysis-content {
+    padding: 1rem;
+  }
+
+  .gemini-section-item {
+    padding-left: 1rem;
   }
 }

@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 const Home = () => {
   const [domain, setDomain] = useState('');
   const [error, setError] = useState('');
+  const [scanType, setScanType] = useState(null); // 'quick' or 'full'
+  const [showInfo, setShowInfo] = useState(false);
   const navigate = useNavigate();
   
   const fullText = "Armour is built for beginners, developers, and security learners who want clear visibility into how a domain is exposed on the internet. Results are displayed in a structured dashboard and explained using AI-generated analysis to help you understand potential risks and misconfigurations.";
@@ -58,7 +60,7 @@ const Home = () => {
     return null; // Valid domain
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e, type) => {
     e.preventDefault();
     const trimmedDomain = domain.trim();
     
@@ -73,14 +75,20 @@ const Home = () => {
       return;
     }
     
+    if (!type) {
+      setError('Please select a scan type');
+      return;
+    }
+    
     // Clear error and save domain to localStorage
     setError('');
     const cleanDomain = trimmedDomain.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
     
-    // Save domain temporarily to localStorage
+    // Save domain and scan type temporarily to localStorage
     localStorage.setItem('currentDomain', cleanDomain);
+    localStorage.setItem('scanType', type);
     
-    navigate('/loading', { state: { domain: cleanDomain } });
+    navigate('/loading', { state: { domain: cleanDomain, scanType: type } });
   };
 
   const handleChange = (e) => {
@@ -111,8 +119,8 @@ const Home = () => {
               
               {/* Domain Input Form */}
               <div className="mt-5 fade-in-delay">
-                <form onSubmit={handleSubmit} className="d-flex flex-column flex-md-row gap-3 justify-content-center">
-                  <div className="flex-grow-1 max-w-600">
+                <form onSubmit={(e) => e.preventDefault()} className="d-flex flex-column gap-3 justify-content-center">
+                  <div className="flex-grow-1 max-w-600 mx-auto w-100">
                     <div className="input-group">
                       <span className="input-group-text bg-dark text-cyan border-secondary">
                         <i className="fas fa-globe"></i>
@@ -133,13 +141,61 @@ const Home = () => {
                       </div>
                     )}
                   </div>
-                  <button
-                    type="submit"
-                    className="btn btn-lg btn-outline-info px-5 text-uppercase fw-bold"
-                  >
-                    <i className="fas fa-search me-2"></i>
-                    Start Recon
-                  </button>
+                  
+                  {/* Scan Type Selection */}
+                  <div className="scan-options-container mt-3">
+                    <div className="scan-info-header d-flex align-items-center justify-content-center gap-2 mb-3 position-relative">
+                      <span className="text-white-50 small me-2">Select scan type:</span>
+                      <i 
+                        className="fas fa-info-circle text-cyan"
+                        style={{ fontSize: '1.2rem', cursor: 'pointer' }}
+                        onClick={() => setShowInfo(!showInfo)}
+                        onMouseEnter={() => setShowInfo(true)}
+                        onMouseLeave={() => setShowInfo(false)}
+                        title="Click for more information"
+                      ></i>
+                      {showInfo && (
+                        <div className="scan-info-tooltip">
+                          <div className="tooltip-content">
+                            <h6 className="mb-2 text-cyan">Scan Types</h6>
+                            <p className="mb-2"><strong>Quick Scan:</strong> Fast scan that completes in approximately 90 seconds.</p>
+                            <p className="mb-0"><strong>Full Scan:</strong> Comprehensive scan that depends on the range of the domain entered. Can take anywhere from 300 to 500 seconds.</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="d-flex flex-column flex-md-row gap-3 justify-content-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          setScanType('quick');
+                          handleSubmit(e, 'quick');
+                        }}
+                        className={`btn px-4 text-uppercase fw-bold scan-btn ${scanType === 'quick' ? 'btn-info' : 'btn-outline-info'}`}
+                      >
+                        <i className="fas fa-bolt me-2"></i>
+                        Quick Scan
+                        <small className="d-block mt-1" style={{ fontSize: '0.7rem', opacity: 0.8 }}>
+                          ~90 seconds
+                        </small>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          setScanType('full');
+                          handleSubmit(e, 'full');
+                        }}
+                        className={`btn px-4 text-uppercase fw-bold scan-btn ${scanType === 'full' ? 'btn-info' : 'btn-outline-info'}`}
+                      >
+                        <i className="fas fa-search me-2"></i>
+                        Full Scan
+                        <small className="d-block mt-1" style={{ fontSize: '0.7rem', opacity: 0.8 }}>
+                          300-500 seconds
+                        </small>
+                      </button>
+                    </div>
+                  </div>
                 </form>
               </div>
               

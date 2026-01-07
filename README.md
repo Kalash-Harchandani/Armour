@@ -1,0 +1,98 @@
+# Armour 🛡️
+
+**Advanced Domain Intelligence & Reconnaissance Platform**
+
+Armour is a modern, beginner-friendly domain intelligence and reconnaissance platform built for developers and security learners. It provides clear visibility into how a domain is exposed on the internet with structured dashboards and AI-powered analysis.
+
+## Features
+
+- 🔍 **Quick & Full Scans** - Choose between fast 90-second quick scans or comprehensive 300-500 second full scans
+- 📊 **Structured Dashboard** - View reconnaissance data in an organized, easy-to-understand format
+- 🤖 **AI-Powered Analysis** - Get insights about potential security risks and misconfigurations using Gemini AI
+- 🎯 **Beginner-Friendly** - Clear explanations and educational content for security learners
+- 📱 **Modern UI** - Beautiful, responsive interface with dark theme
+
+## Project Structure
+
+```
+Armour/
+├── backend/          # Backend scanning and analysis scripts
+│   ├── scripts/      # Core scanning scripts
+│   └── package.json
+├── frontend/         # React frontend application
+│   ├── src/
+│   │   ├── components/  # React components
+│   │   ├── mock/        # Mock data for development
+│   │   └── ...
+│   └── package.json
+└── docs/            # Documentation
+```
+
+## Quick Start
+
+### Backend Setup
+
+1. Navigate to backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Create `.env` file:
+   ```bash
+   echo "GEMINI_API_KEY=your_api_key_here" > .env
+   ```
+
+4. Run a scan:
+   ```bash
+   node scripts/scan.js example.com quick
+   node scripts/analysis.js example.com recon.json
+   ```
+
+### Frontend Setup
+
+1. Navigate to frontend directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start development server:
+   ```bash
+   npm start
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Documentation
+
+- [Security Checklist](./docs/SECURITY_CHECKLIST.md) - Security best practices and GitHub push guidelines
+
+## Tech Stack
+
+### Backend
+- Node.js
+- Google Gemini AI
+- DNS, HTTP, SSL scanning libraries
+
+### Frontend
+- React
+- React Router
+- Bootstrap (for styling)
+
+## License
+
+ISC
+
+## Contributing
+
+Contributions are welcome! Please ensure you follow the security guidelines in `docs/SECURITY_CHECKLIST.md` before pushing to GitHub.
+
