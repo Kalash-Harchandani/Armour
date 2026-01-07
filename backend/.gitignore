@@ -8,6 +8,7 @@ node_modules/
 
 # Analysis output
 analysis/
+scans/
 recon.json
 scan_*.json
 *.ai.json

@@ -12,17 +12,8 @@ import { load } from "cheerio";
 import sslChecker from "ssl-checker";
 import pLimit from "p-limit";
 
-/* ================= MODE ================= */
-const domain = process.argv[2];
-const mode = process.argv[3] || "quick";
-
-if (!domain) {
-  console.error("Usage: node scripts/scan.js domain.com quick|full");
-  process.exit(1);
-}
-
 /* ================= CONFIG ================= */
-const CONFIG = {
+export const CONFIG = {
   quick: {
     TIMEOUT: 3000,
     CRT_TIMEOUT: 5000,
@@ -41,26 +32,17 @@ const CONFIG = {
   }
 };
 
-const {
-  TIMEOUT,
-  CRT_TIMEOUT,
-  CONCURRENCY,
-  MAX_SUBDOMAINS,
-  MAX_SCAN_TIME,
-  HEAVY_MAIN_ONLY
-} = CONFIG[mode] || CONFIG.quick;
-
 const PORTS = [80, 443, 8080];
 
 /* ================= UTILS ================= */
 const dedupe = arr => [...new Set(arr.filter(Boolean))];
 
 /* ================= SUBDOMAINS ================= */
-async function getSubdomains(domain) {
+async function getSubdomains(domain, config) {
   try {
     const r = await axios.get(
       `https://crt.sh/?q=%25.${domain}&output=json`,
-      { timeout: CRT_TIMEOUT }
+      { timeout: config.CRT_TIMEOUT }
     );
 
     const subs = new Set();
@@ -72,7 +54,7 @@ async function getSubdomains(domain) {
         .forEach(s => subs.add(s));
     });
 
-    return dedupe([domain, ...subs]).slice(0, MAX_SUBDOMAINS);
+    return dedupe([domain, ...subs]).slice(0, config.MAX_SUBDOMAINS);
   } catch {
     return [domain];
   }
@@ -90,10 +72,10 @@ async function getDNS(host) {
 }
 
 /* ================= PORT CHECK ================= */
-function checkPort(host, port) {
+function checkPort(host, port, timeout) {
   return new Promise(res => {
     const s = new net.Socket();
-    s.setTimeout(TIMEOUT);
+    s.setTimeout(timeout);
 
     s.on("connect", () => { s.destroy(); res({ port, open: true }); });
     s.on("timeout", () => { s.destroy(); res({ port, open: false }); });
@@ -122,11 +104,11 @@ function detectTech(headers = {}, html = "") {
 }
 
 /* ================= HTTP ================= */
-async function getHTTP(host) {
+async function getHTTP(host, timeout) {
   for (const url of [`https://${host}`, `http://${host}`]) {
     try {
       const r = await axios.get(url, {
-        timeout: TIMEOUT,
+        timeout: timeout,
         maxRedirects: 5,
         validateStatus: () => true
       });
@@ -157,8 +139,11 @@ async function getSSL(host) {
 }
 
 /* ================= CORE RUN ================= */
-async function run(domain) {
-  const subs = await getSubdomains(domain);
+export async function runScan(domain, scanMode = "quick") {
+  const config = CONFIG[scanMode] || CONFIG.quick;
+  const { TIMEOUT, CRT_TIMEOUT, CONCURRENCY, HEAVY_MAIN_ONLY } = config;
+
+  const subs = await getSubdomains(domain, config);
   const limit = pLimit(CONCURRENCY);
 
   const hosts = await Promise.all(
@@ -169,9 +154,9 @@ async function run(domain) {
 
         const [dnsInfo, http, ssl, ports] = await Promise.all([
           getDNS(host),
-          heavy ? getHTTP(host) : null,
+          heavy ? getHTTP(host, TIMEOUT) : null,
           heavy ? getSSL(host) : null,
-          Promise.all(PORTS.map(p => checkPort(host, p)))
+          Promise.all(PORTS.map(p => checkPort(host, p, TIMEOUT)))
         ]);
 
         return {
@@ -191,7 +176,7 @@ async function run(domain) {
   return {
     scanId: `scan_${Date.now()}`,
     domain,
-    mode,
+    mode: scanMode,
     status: "completed",
     subdomains: hosts.map(h => h.hostname),
     dns: main?.dns || {},
@@ -206,9 +191,51 @@ async function run(domain) {
   };
 }
 
-/* ================= TIME CAP ================= */
+export async function runScanWithTimeout(domain, scanMode = "quick") {
+  const config = CONFIG[scanMode] || CONFIG.quick;
+  const { MAX_SCAN_TIME } = config;
+
+  return Promise.race([
+    runScan(domain, scanMode),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Scan timed out")), MAX_SCAN_TIME)
+    )
+  ]).catch(error => {
+    if (error.message === "Scan timed out") {
+      return {
+        scanId: `scan_${Date.now()}`,
+        domain,
+        mode: scanMode,
+        status: "partial",
+        message: "Scan timed out"
+      };
+    }
+    throw error;
+  });
+}
+
+/* ================= CLI MODE ================= */
+// Only run CLI code if this file is executed directly (not imported)
+const isMainModule = process.argv[1] && (
+  process.argv[1].endsWith('scan.js') || 
+  process.argv[1].includes('scripts/scan.js')
+);
+
+if (isMainModule) {
+  const domain = process.argv[2];
+  const mode = process.argv[3] || "quick";
+
+  if (!domain) {
+    console.error("Usage: node scripts/scan.js domain.com quick|full");
+    process.exit(1);
+  }
+
+  const config = CONFIG[mode] || CONFIG.quick;
+  const { MAX_SCAN_TIME } = config;
+
+  // Run CLI scan
 Promise.race([
-  run(domain),
+    runScan(domain, mode),
   new Promise((_, r) => setTimeout(() => r(new Error("timeout")), MAX_SCAN_TIME))
 ])
   .then(r => console.log(JSON.stringify(r, null, 2)))
@@ -221,6 +248,7 @@ Promise.race([
       message: "Scan timed out"
     }, null, 2))
   );
+}
 
 
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Home = () => {
   const [domain, setDomain] = useState('');
@@ -7,6 +7,16 @@ const Home = () => {
   const [scanType, setScanType] = useState(null); // 'quick' or 'full'
   const [showInfo, setShowInfo] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check for error from previous navigation
+  useEffect(() => {
+    if (location.state?.error) {
+      setError(location.state.error);
+      // Clear the error from state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
   
   const fullText = "Armour is built for beginners, developers, and security learners who want clear visibility into how a domain is exposed on the internet. Results are displayed in a structured dashboard and explained using AI-generated analysis to help you understand potential risks and misconfigurations.";
 
@@ -60,7 +70,7 @@ const Home = () => {
     return null; // Valid domain
   };
 
-  const handleSubmit = (e, type) => {
+  const handleSubmit = async (e, type) => {
     e.preventDefault();
     const trimmedDomain = domain.trim();
     
@@ -83,6 +93,33 @@ const Home = () => {
     // Clear error and save domain to localStorage
     setError('');
     const cleanDomain = trimmedDomain.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+    
+    // Check if we already have scan data for this domain
+    const savedScanData = localStorage.getItem('scanData');
+    const savedDomain = localStorage.getItem('currentDomain');
+    const savedScanId = localStorage.getItem('currentScanId');
+    
+    // If we have existing scan data for the same domain, navigate directly to dashboard
+    if (savedDomain === cleanDomain && savedScanData && savedScanId) {
+      try {
+        const parsedScanData = JSON.parse(savedScanData);
+        // Check if the saved data is for the same domain
+        if (parsedScanData.domain === cleanDomain) {
+          // Navigate directly to dashboard with existing data
+          navigate('/dashboard', {
+            state: {
+              domain: cleanDomain,
+              scanId: savedScanId,
+              scanData: parsedScanData
+            }
+          });
+          return;
+        }
+      } catch (e) {
+        // If parsing fails, continue with new scan
+        console.error('Failed to parse saved scan data:', e);
+      }
+    }
     
     // Save domain and scan type temporarily to localStorage
     localStorage.setItem('currentDomain', cleanDomain);

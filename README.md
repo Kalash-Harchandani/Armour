@@ -12,6 +12,14 @@ Armour is a modern, beginner-friendly domain intelligence and reconnaissance pla
 - 🎯 **Beginner-Friendly** - Clear explanations and educational content for security learners
 - 📱 **Modern UI** - Beautiful, responsive interface with dark theme
 
+## Available Scripts
+
+From the root directory:
+
+- `npm run dev` - Run both backend and frontend in development mode
+- `npm run start` - Run both backend and frontend in production mode
+- `npm run install:all` - Install dependencies for root, backend, and frontend
+
 ## Project Structure
 
 ```
@@ -30,7 +38,32 @@ Armour/
 
 ## Quick Start
 
-### Backend Setup
+### Option 1: Run Both Together (Recommended)
+
+1. Install all dependencies (root, backend, and frontend):
+   ```bash
+   npm run install:all
+   ```
+
+2. Create backend `.env` file:
+   ```bash
+   cd backend
+   echo "GEMINI_API_KEY=your_api_key_here" > .env
+   cd ..
+   ```
+
+3. Run both frontend and backend:
+   ```bash
+   npm run dev
+   ```
+
+   This will start:
+   - Backend API on `http://localhost:5002`
+   - Frontend app on `http://localhost:3000`
+
+### Option 2: Run Separately
+
+#### Backend Setup
 
 1. Navigate to backend directory:
    ```bash
@@ -47,13 +80,12 @@ Armour/
    echo "GEMINI_API_KEY=your_api_key_here" > .env
    ```
 
-4. Run a scan:
+4. Start backend server:
    ```bash
-   node scripts/scan.js example.com quick
-   node scripts/analysis.js example.com recon.json
+   npm run dev
    ```
 
-### Frontend Setup
+#### Frontend Setup
 
 1. Navigate to frontend directory:
    ```bash

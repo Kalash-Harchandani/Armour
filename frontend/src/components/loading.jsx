@@ -1,12 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { scanDomain, analyzeScan } from '../services/api';
 
 const Loading = () => {
   const [loadingText, setLoadingText] = useState('Initializing reconnaissance...');
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const domain = location.state?.domain || '';
+  const scanType = location.state?.scanType || localStorage.getItem('scanType') || 'quick';
+  const hasStartedRef = useRef(false);
+  const hasNavigatedRef = useRef(false);
 
   const loadingMessages = [
     'Initializing reconnaissance...',
@@ -24,12 +29,33 @@ const Loading = () => {
       return;
     }
 
+    // Clear any previous errors when component mounts
+    setError(null);
+
+    // Prevent duplicate scans (React StrictMode runs effects twice in dev)
+    if (hasStartedRef.current) {
+      return;
+    }
+    hasStartedRef.current = true;
+
+    // Prevent duplicate scans - check if scan is already in progress
+    const scanKey = `scanning_${domain}_${scanType}`;
+    if (localStorage.getItem(scanKey)) {
+      // Scan already in progress, don't start another one
+      return;
+    }
+
+    // Mark scan as in progress
+    localStorage.setItem(scanKey, 'true');
+
     // Save domain to localStorage immediately when loading starts
     localStorage.setItem('currentDomain', domain);
+    localStorage.setItem('scanType', scanType);
 
     let messageIndex = 0;
+    let scanId = null;
 
-    // Simulate loading progress with messages
+    // Update loading messages
     const messageInterval = setInterval(() => {
       if (messageIndex < loadingMessages.length - 1) {
         messageIndex++;
@@ -38,34 +64,126 @@ const Loading = () => {
       }
     }, 2000);
 
-    // Simulate loading completion and navigate to dashboard
-    const completeLoading = () => {
-      // Mark that recon has been started
-      localStorage.setItem('reconStarted', 'true');
+    // Start the actual scan
+    const startScan = async () => {
+      try {
+        setLoadingText('Starting domain scan...');
+        setProgress(10);
+        setError(null); // Clear any previous errors
+        
+        // Call the scan API (this will wait for the scan to complete)
+        setLoadingText(`Scanning ${domain} (this may take ${scanType === 'quick' ? '60-90' : '300-500'} seconds)...`);
+        setProgress(20);
+        
+        const scanResult = await scanDomain(domain, scanType);
+        
+        // Clear any errors if scan succeeded
+        setError(null);
+        scanId = scanResult.scanId;
+        
+        // Save scanId to localStorage
+        localStorage.setItem('currentScanId', scanId);
+        localStorage.setItem('scanData', JSON.stringify(scanResult.data));
+        
+        setLoadingText('Scan completed! Running AI analysis...');
+        setProgress(85);
+
+        // Clean up scan flag immediately
+        localStorage.removeItem(scanKey);
       
-      // Ensure domain is saved in localStorage
-      localStorage.setItem('currentDomain', domain);
+        // Start analysis in background - don't wait for it
+        let analysisResult = null;
+        const analysisPromise = (async () => {
+          try {
+            setLoadingText('Running AI-powered analysis (this may take 30-60 seconds)...');
+            setProgress(90);
+            setError(null);
+            
+            analysisResult = await analyzeScan(scanId);
+            
+            setError(null);
+            localStorage.setItem(`geminiAnalysis_${domain}`, JSON.stringify(analysisResult));
+            
+            // Update analysis in localStorage if navigation already happened
+            const storedAnalysis = localStorage.getItem(`geminiAnalysis_${domain}`);
+            if (storedAnalysis) {
+              // Analysis completed, it's saved
+            }
+          } catch (analysisError) {
+            console.error('Analysis error:', analysisError);
+            // Analysis failed, but don't block - user can retry from dashboard
+          }
+        })();
       
-      // Complete loading
+        // Navigate immediately after scan completes (don't wait for analysis)
       setLoadingText('Reconnaissance complete!');
       setProgress(100);
-      
-      // Wait a moment then navigate to dashboard
+        setError(null);
+        
+        // Save data to localStorage for dashboard to access
+        const dashboardData = {
+          domain,
+          scanId,
+          scanData: scanResult.data,
+          analysis: analysisResult
+        };
+        localStorage.setItem('dashboardData', JSON.stringify(dashboardData));
+        
+        // Navigate immediately - use multiple approaches to ensure it works
+        console.log('Attempting navigation to dashboard with scanId:', scanId);
+        console.log('hasNavigatedRef.current:', hasNavigatedRef.current);
+        
+        if (!hasNavigatedRef.current) {
+          hasNavigatedRef.current = true;
+          
+          // Use setTimeout to ensure state updates are complete
+          setTimeout(() => {
+            try {
+              console.log('Calling navigate with data:', { domain, scanId });
+              navigate('/dashboard', { 
+                state: dashboardData,
+                replace: true
+              });
+              console.log('Navigation called successfully');
+            } catch (navError) {
+              console.error('Navigation error:', navError);
+              // Fallback to window.location if navigate fails
+              window.location.href = '/dashboard';
+            }
+          }, 100);
+        }
+
+      } catch (scanError) {
+        console.error('Scan error:', scanError);
+        
+        // Show error and navigate
+        setError(`Scan failed: ${scanError.message}`);
+        setLoadingText('Scan failed. Please try again.');
+        setProgress(0);
+        
+        // Clean up scan flag
+        localStorage.removeItem(scanKey);
+        
+        // Navigate back to home after error
       setTimeout(() => {
-        navigate('/dashboard', { state: { domain } });
-      }, 1000);
+          if (!hasNavigatedRef.current) {
+            hasNavigatedRef.current = true;
+            navigate('/', { state: { error: scanError.message }, replace: true });
+          }
+        }, 3000);
+      }
     };
 
-    // Simulate the loading process
-    const loadingTimeout = setTimeout(() => {
-      completeLoading();
-    }, 15000);
+    // Start the scan process
+    startScan();
 
     return () => {
       clearInterval(messageInterval);
-      clearTimeout(loadingTimeout);
+      // Clean up the scan flag if component unmounts
+      localStorage.removeItem(scanKey);
     };
-  }, [domain, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domain, scanType, navigate]);
 
   return (
     <div className="loading-page min-vh-100 d-flex align-items-center justify-content-center position-relative">
@@ -87,6 +205,36 @@ const Loading = () => {
             {/* Loading Text */}
             <div className="loading-text">
               <p className="text-white fs-5 mb-4">{loadingText}</p>
+              {error && progress < 100 && (
+                <div className="alert alert-danger mt-3" role="alert">
+                  <i className="fas fa-exclamation-triangle me-2"></i>
+                  {error}
+                </div>
+              )}
+              {progress === 100 && (
+                <div className="mt-4">
+                  <button
+                    className="btn btn-info btn-lg"
+                    onClick={() => {
+                      const scanId = localStorage.getItem('currentScanId');
+                      const scanData = localStorage.getItem('scanData');
+                      const savedDomain = localStorage.getItem('currentDomain');
+                      
+                      navigate('/dashboard', {
+                        state: {
+                          domain: savedDomain || domain,
+                          scanId,
+                          scanData: scanData ? JSON.parse(scanData) : null
+                        },
+                        replace: true
+                      });
+                    }}
+                  >
+                    <i className="fas fa-arrow-right me-2"></i>
+                    View Results
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

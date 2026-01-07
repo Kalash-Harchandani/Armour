@@ -41,11 +41,16 @@ yarn-error.log*
 lerna-debug.log*
 *.log
 
-# Backend specific
+# Backend specific - scan outputs and analysis results
 backend/analysis/
+backend/scans/
 backend/recon.json
 backend/scan_*.json
 backend/*.ai.json
+**/scan_*.json
+**/*.ai.json
+**/scans/
+**/analysis/
 
 # Frontend specific
 frontend/build/
