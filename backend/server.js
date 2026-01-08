@@ -2,36 +2,54 @@
 /**
  * Armour Express API Server
  * Provides REST API endpoints for scanning and analysis
+ * Uses MongoDB for data persistence
  */
 
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import session from "express-session";
+import passport from "./config/passport.js";
 import { runScanWithTimeout } from "./scripts/scan.js";
-import { runAnalysis } from "./scripts/analysis.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { runAnalysis, AI_ANALYSIS_UNAVAILABLE_ERROR } from "./scripts/analysis.js";
+import { connectDB } from "./config/database.js";
+import Scan from "./models/Scan.js";
+import Analysis from "./models/Analysis.js";
+import User from "./models/User.js";
+import { authenticate, generateToken } from "./middleware/auth.js";
+import { checkScanLimit } from "./middleware/rateLimit.js";
 
 const app = express();
 const PORT = process.env.PORT || 5002;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  credentials: true,
+}));
 app.use(express.json());
 
-// Ensure output directories exist
-const SCAN_OUTPUT_DIR = path.join(__dirname, "scans");
-const ANALYSIS_OUTPUT_DIR = path.join(__dirname, "analysis");
+// Session configuration
+// WARNING: Default secret is for development only. Always set SESSION_SECRET in production .env file!
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "your-session-secret-change-in-production",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    },
+  })
+);
 
-[SCAN_OUTPUT_DIR, ANALYSIS_OUTPUT_DIR].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Connect to MongoDB
+connectDB();
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
@@ -42,12 +60,93 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// ==================== AUTHENTICATION ROUTES ====================
+
+/**
+ * GET /api/auth/google
+ * Initiate Google OAuth login
+ */
+app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+/**
+ * GET /api/auth/google/callback
+ * Google OAuth callback - returns JWT token
+ */
+app.get(
+  "/api/auth/google/callback",
+  passport.authenticate("google", { session: false }),
+  (req, res) => {
+    try {
+      // Generate JWT token
+      const token = generateToken(req.user._id);
+
+      // Redirect to frontend with token
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+    } catch (error) {
+      console.error("Auth callback error:", error);
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/auth/callback?error=authentication_failed`);
+    }
+  }
+);
+
+/**
+ * GET /api/auth/me
+ * Get current user information
+ */
+app.get("/api/auth/me", authenticate, async (req, res) => {
+  try {
+    const user = req.user;
+    const remaining = user.getRemainingScans();
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        scanLimits: {
+          quick: {
+            used: user.scanLimits.quickScansUsed,
+            limit: user.scanLimits.quickScansLimit,
+            remaining: remaining.quick,
+          },
+          full: {
+            used: user.scanLimits.fullScansUsed,
+            limit: user.scanLimits.fullScansLimit,
+            remaining: remaining.full,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to get user info",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/auth/logout
+ * Logout (client-side token removal)
+ */
+app.post("/api/auth/logout", authenticate, (req, res) => {
+  res.json({
+    success: true,
+    message: "Logged out successfully",
+  });
+});
+
 /**
  * POST /api/scan
  * Scan a domain (quick or full mode)
+ * Requires authentication
  * Body: { domain: string, scanType: "quick" | "full" }
  */
-app.post("/api/scan", async (req, res) => {
+app.post("/api/scan", authenticate, checkScanLimit, async (req, res) => {
   try {
     const { domain, scanType = "quick" } = req.body;
 
@@ -82,11 +181,22 @@ app.post("/api/scan", async (req, res) => {
     // Run scan with timeout
     const scanResult = await runScanWithTimeout(cleanDomain, scanType);
 
-    // Save scan result to file
-    const scanFile = path.join(SCAN_OUTPUT_DIR, `${scanResult.scanId}.json`);
-    fs.writeFileSync(scanFile, JSON.stringify(scanResult, null, 2));
+    // Save scan result to MongoDB
+    const scanDoc = new Scan({
+      scanId: scanResult.scanId,
+      userId: req.userId,
+      domain: scanResult.domain,
+      mode: scanResult.mode,
+      status: scanResult.status,
+      data: scanResult,
+    });
 
-    console.log(`[${new Date().toISOString()}] Scan completed: ${scanResult.scanId}`);
+    await scanDoc.save();
+
+    // Increment user's scan count
+    await req.user.incrementScanCount(scanType);
+
+    console.log(`[${new Date().toISOString()}] Scan completed and saved to MongoDB: ${scanResult.scanId}`);
 
     res.json({
       success: true,
@@ -109,28 +219,29 @@ app.post("/api/scan", async (req, res) => {
 /**
  * POST /api/analyze
  * Analyze scan data using Gemini AI
+ * Requires authentication
  * Body: { domain: string, scanData: object } OR { scanId: string }
  */
-app.post("/api/analyze", async (req, res) => {
+app.post("/api/analyze", authenticate, async (req, res) => {
   try {
     const { domain, scanData, scanId } = req.body;
 
     let reconData = scanData;
     let targetDomain = domain;
 
-    // If scanId is provided, load from file
+    // If scanId is provided, load from MongoDB
     if (scanId && !scanData) {
-      const scanFile = path.join(SCAN_OUTPUT_DIR, `${scanId}.json`);
+      const scanDoc = await Scan.findOne({ scanId, userId: req.userId });
       
-      if (!fs.existsSync(scanFile)) {
+      if (!scanDoc) {
         return res.status(404).json({ 
           error: "Scan not found",
-          message: `Scan with ID ${scanId} not found`
+          message: `Scan with ID ${scanId} not found or you don't have access to it`
         });
       }
 
-      reconData = JSON.parse(fs.readFileSync(scanFile, "utf-8"));
-      targetDomain = reconData.domain || domain;
+      reconData = scanDoc.data;
+      targetDomain = scanDoc.domain || domain;
     }
 
     // Validation
@@ -156,16 +267,83 @@ app.post("/api/analyze", async (req, res) => {
       });
     }
 
+    // Get scanId from scanData or scanId parameter
+    const targetScanId = scanId || reconData?.scanId;
+
+    // Check if analysis already exists for this scanId
+    if (targetScanId) {
+      const existingAnalysis = await Analysis.findOne({ 
+        scanId: targetScanId, 
+        userId: req.userId 
+      });
+
+      if (existingAnalysis) {
+        console.log(`[${new Date().toISOString()}] Analysis already exists for scanId: ${targetScanId}, returning existing analysis`);
+        return res.json({
+          success: true,
+          scanId: existingAnalysis.scanId,
+          domain: existingAnalysis.domain,
+          analysis: existingAnalysis.analysis,
+          cached: true
+        });
+      }
+    }
+
     console.log(`[${new Date().toISOString()}] Starting analysis for: ${targetDomain}`);
 
     // Run analysis
     const analysisResult = await runAnalysis(targetDomain, reconData);
 
-    // Save analysis result to file
-    const analysisFile = path.join(ANALYSIS_OUTPUT_DIR, `${analysisResult.scanId}.ai.json`);
-    fs.writeFileSync(analysisFile, JSON.stringify(analysisResult, null, 2));
+    // Check again if analysis was created by another concurrent request
+    const existingAnalysis = await Analysis.findOne({ 
+      scanId: analysisResult.scanId, 
+      userId: req.userId 
+    });
 
-    console.log(`[${new Date().toISOString()}] Analysis completed: ${analysisResult.scanId}`);
+    if (existingAnalysis) {
+      console.log(`[${new Date().toISOString()}] Analysis was created concurrently, returning existing: ${analysisResult.scanId}`);
+      return res.json({
+        success: true,
+        scanId: existingAnalysis.scanId,
+        domain: existingAnalysis.domain,
+        analysis: existingAnalysis.analysis,
+        cached: true
+      });
+    }
+
+    // Save analysis result to MongoDB
+    const analysisDoc = new Analysis({
+      scanId: analysisResult.scanId,
+      userId: req.userId,
+      domain: analysisResult.domain,
+      analysis: analysisResult.analysis,
+      data: analysisResult,
+    });
+
+    try {
+      await analysisDoc.save();
+      console.log(`[${new Date().toISOString()}] Analysis completed and saved to MongoDB: ${analysisResult.scanId}`);
+    } catch (saveError) {
+      // Handle duplicate key error (race condition)
+      if (saveError.code === 11000 && saveError.keyPattern?.scanId) {
+        console.log(`[${new Date().toISOString()}] Duplicate analysis detected (race condition), fetching existing: ${analysisResult.scanId}`);
+        const existing = await Analysis.findOne({ 
+          scanId: analysisResult.scanId, 
+          userId: req.userId 
+        });
+        
+        if (existing) {
+          return res.json({
+            success: true,
+            scanId: existing.scanId,
+            domain: existing.domain,
+            analysis: existing.analysis,
+            cached: true
+          });
+        }
+      }
+      throw saveError; // Re-throw if it's not a duplicate key error
+    }
 
     res.json({
       success: true,
@@ -176,9 +354,16 @@ app.post("/api/analyze", async (req, res) => {
 
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Analysis error:`, error.message);
-    res.status(500).json({ 
-      error: "Analysis failed",
-      message: error.message 
+    if (error.originalError) {
+      console.error(`[${new Date().toISOString()}] Original error:`, error.originalError);
+    }
+    
+    // For ANY analysis error, return the user-friendly MVP message
+    // This catches: missing API key, model failures, network errors, etc.
+    return res.status(503).json({ 
+      success: false,
+      error: "AI_ANALYSIS_UNAVAILABLE",
+      message: "We're still in the MVP phase 🚧 Some AI analysis features are limited right now. Please check back soon — we're actively working on it!"
     });
   }
 });
@@ -186,23 +371,23 @@ app.post("/api/analyze", async (req, res) => {
 /**
  * GET /api/scan/:scanId
  * Get scan results by scanId
+ * Requires authentication - users can only access their own scans
  */
-app.get("/api/scan/:scanId", (req, res) => {
+app.get("/api/scan/:scanId", authenticate, async (req, res) => {
   try {
     const { scanId } = req.params;
-    const scanFile = path.join(SCAN_OUTPUT_DIR, `${scanId}.json`);
+    const scanDoc = await Scan.findOne({ scanId, userId: req.userId });
 
-    if (!fs.existsSync(scanFile)) {
+    if (!scanDoc) {
       return res.status(404).json({ 
         error: "Scan not found",
-        message: `Scan with ID ${scanId} not found`
+        message: `Scan with ID ${scanId} not found or you don't have access to it`
       });
     }
 
-    const scanData = JSON.parse(fs.readFileSync(scanFile, "utf-8"));
     res.json({
       success: true,
-      data: scanData
+      data: scanDoc.data
     });
 
   } catch (error) {
@@ -214,25 +399,55 @@ app.get("/api/scan/:scanId", (req, res) => {
 });
 
 /**
+ * GET /api/scans
+ * Get all scans for the authenticated user
+ * Requires authentication
+ */
+app.get("/api/scans", authenticate, async (req, res) => {
+  try {
+    const scans = await Scan.find({ userId: req.userId })
+      .sort({ createdAt: -1 }) // Most recent first
+      .select("scanId domain mode status createdAt")
+      .limit(50); // Limit to 50 most recent scans
+
+    res.json({
+      success: true,
+      scans: scans.map(scan => ({
+        scanId: scan.scanId,
+        domain: scan.domain,
+        mode: scan.mode,
+        status: scan.status,
+        createdAt: scan.createdAt,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to retrieve scans",
+      message: error.message,
+    });
+  }
+});
+
+/**
  * GET /api/analysis/:scanId
  * Get analysis results by scanId
+ * Requires authentication - users can only access their own analyses
  */
-app.get("/api/analysis/:scanId", (req, res) => {
+app.get("/api/analysis/:scanId", authenticate, async (req, res) => {
   try {
     const { scanId } = req.params;
-    const analysisFile = path.join(ANALYSIS_OUTPUT_DIR, `${scanId}.ai.json`);
+    const analysisDoc = await Analysis.findOne({ scanId, userId: req.userId });
 
-    if (!fs.existsSync(analysisFile)) {
+    if (!analysisDoc) {
       return res.status(404).json({ 
         error: "Analysis not found",
-        message: `Analysis for scan ID ${scanId} not found`
+        message: `Analysis for scan ID ${scanId} not found or you don't have access to it`
       });
     }
 
-    const analysisData = JSON.parse(fs.readFileSync(analysisFile, "utf-8"));
     res.json({
       success: true,
-      data: analysisData
+      data: analysisDoc.data
     });
 
   } catch (error) {
@@ -265,9 +480,15 @@ app.listen(PORT, () => {
   console.log(`\n🚀 Armour API Server running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
   console.log(`📝 API endpoints:`);
-  console.log(`   POST   /api/scan`);
-  console.log(`   POST   /api/analyze`);
-  console.log(`   GET    /api/scan/:scanId`);
-  console.log(`   GET    /api/analysis/:scanId\n`);
+  console.log(`   GET    /api/auth/google`);
+  console.log(`   GET    /api/auth/google/callback`);
+  console.log(`   GET    /api/auth/me`);
+  console.log(`   POST   /api/auth/logout`);
+  console.log(`   POST   /api/scan (requires auth)`);
+  console.log(`   POST   /api/analyze (requires auth)`);
+  console.log(`   GET    /api/scan/:scanId (requires auth)`);
+  console.log(`   GET    /api/analysis/:scanId (requires auth)`);
+  console.log(`\n💾 Using MongoDB for data storage`);
+  console.log(`🔐 Authentication: Google OAuth + JWT\n`);
 });
 

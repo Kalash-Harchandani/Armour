@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import scanData from '../mock/ScanData';
 import { getScan, getAnalysis, analyzeScan } from '../services/api';
+import { generateScanPDF } from '../utils/pdfGenerator';
 
 // Component to parse and display Gemini Analysis
 const GeminiAnalysisDisplay = ({ analysis, domain, onGenerateAnalysis, isGenerating, scanId }) => {
@@ -181,13 +182,6 @@ const GeminiAnalysisDisplay = ({ analysis, domain, onGenerateAnalysis, isGenerat
     });
   }
 
-  const getRiskColor = (risk) => {
-    const riskLower = risk.toLowerCase();
-    if (riskLower.includes('low')) return 'text-success';
-    if (riskLower.includes('medium')) return 'text-warning';
-    if (riskLower.includes('high')) return 'text-danger';
-    return 'text-info';
-  };
 
   const formatBulletPoints = (text) => {
     // Handle both * and - bullet points
@@ -475,7 +469,11 @@ const Dashboard = () => {
       setAnalysisError(null); // Clear any previous errors
     } catch (error) {
       console.error('Failed to generate analysis:', error);
-      setAnalysisError(error.message || 'Failed to generate analysis. Please try again.');
+      
+      // For ANY analysis error, show the user-friendly MVP message
+      // This catches all errors: API unavailable, network errors, etc.
+      setAnalysisError("We're still in the MVP phase 🚧 Some AI analysis features are limited right now. Please check back soon — we're actively working on it!");
+      
       setIsGeneratingAnalysis(false);
     }
   };
@@ -484,43 +482,61 @@ const Dashboard = () => {
   const scanId = location.state?.scanId || localStorage.getItem('currentScanId');
 
   return (
-    <div className="dashboard-page bg-black min-vh-100 py-4">
-      <div className="container">
-        {/* Header */}
-        <div className="mb-4">
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <div>
-              <h1 className="text-cyan fw-bold mb-2 dashboard-title">{currentDomain}</h1>
-              <span className="text-secondary small">{data.status}</span>
+    <div className="home-page">
+      <section className="hero-section min-vh-100 py-5 position-relative">
+        <div className="container">
+          {/* Header */}
+          <div className="mb-5 fade-in">
+            <div className="text-center mb-4">
+              <h1 className="main-heading display-1 fw-bold mb-3">
+                <span className="text-cyan">ARMOUR</span>
+              </h1>
+              <p className="subheading lead text-white mb-4">
+                <i className="fas fa-globe me-2 text-cyan"></i>
+                {currentDomain}
+              </p>
+              <span className="badge bg-secondary mb-3">{data.status}</span>
             </div>
-            <button 
-              className="btn btn-outline-info" 
-              onClick={() => window.location.href = '/'}
-            >
-              <i className="fas fa-search me-2"></i>New Scan
-            </button>
+            <div className="text-center d-flex gap-3 justify-content-center flex-wrap">
+              <button 
+                className="btn btn-outline-cyan" 
+                onClick={() => window.location.href = '/'}
+              >
+                <i className="fas fa-search me-2"></i>New Scan
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}
-          <div className="dashboard-tabs">
-            <button
-              className={`dashboard-tab ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              Overview
-            </button>
-            <button
-              className={`dashboard-tab ${activeTab === 'analysis' ? 'active' : ''}`}
-              onClick={() => setActiveTab('analysis')}
-            >
-              <i className="fas fa-robot me-2"></i>Gemini Analysis
-            </button>
+          <div className="dashboard-tabs mb-4 fade-in-delay">
+            <div className="d-flex justify-content-center gap-3">
+              <button
+                className={`btn ${activeTab === 'overview' ? 'btn-info' : 'btn-outline-info'}`}
+                onClick={() => setActiveTab('overview')}
+              >
+                <i className="fas fa-chart-line me-2"></i>Overview
+              </button>
+              <button
+                className={`btn ${activeTab === 'analysis' ? 'btn-info' : 'btn-outline-info'}`}
+                onClick={() => setActiveTab('analysis')}
+              >
+                <i className="fas fa-robot me-2"></i>Gemini Analysis
+              </button>
+            </div>
           </div>
-        </div>
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="dashboard-container">
+          <div className="fade-in-delay-2">
+            <div className="text-center mb-4">
+              <button 
+                className="btn btn-outline-cyan btn-lg" 
+                onClick={() => generateScanPDF(data, currentDomain)}
+              >
+                <i className="fas fa-file-pdf me-2"></i>Download PDF Report
+              </button>
+            </div>
+            <div className="dashboard-container">
             {/* Left Column: Subdomains, Ports, Technology */}
             <div className="dashboard-column">
               {/* Subdomains */}
@@ -684,11 +700,12 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
+            </div>
           </div>
         )}
 
         {activeTab === 'analysis' && (
-          <>
+          <div className="fade-in-delay-2">
             <GeminiAnalysisDisplay 
               analysis={geminiAnalysis} 
               domain={currentDomain}
@@ -697,14 +714,22 @@ const Dashboard = () => {
               scanId={scanId}
             />
             {analysisError && (
-              <div className="alert alert-danger mt-3" role="alert">
-                <i className="fas fa-exclamation-triangle me-2"></i>
-                {analysisError}
+              <div className="alert alert-warning alert-dismissible fade show mt-3" role="alert">
+                <i className="fas fa-info-circle me-2"></i>
+                <strong>Notice:</strong> {analysisError}
+                <button 
+                  type="button" 
+                  className="btn-close" 
+                  data-bs-dismiss="alert" 
+                  aria-label="Close"
+                  onClick={() => setAnalysisError(null)}
+                ></button>
               </div>
             )}
-          </>
+          </div>
         )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 };

@@ -12,16 +12,27 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /* ================= GEMINI ================= */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+// Model priority list: try gemini-2.5-flash-lite first, then gemini-2.5-flash
+const MODEL_PRIORITY = [
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash"
+];
+
+// Special error code for when all models fail
+export const AI_ANALYSIS_UNAVAILABLE_ERROR = "AI_ANALYSIS_UNAVAILABLE";
 
 /* ================= EXPORTABLE FUNCTION ================= */
 export async function runAnalysis(domain, reconData) {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY environment variable is not set");
-  }
+  // Wrap everything in try-catch to catch ALL possible errors
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      const error = new Error("GEMINI_API_KEY environment variable is not set");
+      error.code = AI_ANALYSIS_UNAVAILABLE_ERROR;
+      throw error;
+    }
 
-  const scanId = reconData.scanId || `scan_${Date.now()}`;
+    const scanId = reconData.scanId || `scan_${Date.now()}`;
 
   const prompt = `
 I want you to act as a junior security analyst performing a passive reconnaissance review.
@@ -64,20 +75,57 @@ ${JSON.stringify({
 }, null, 2)}
 `;
 
-  try {
-    const result = await model.generateContent(prompt);
-    const analysisText = result.response.text();
+  // Try each model in priority order
+  let lastError = null;
+  
+  for (const modelName of MODEL_PRIORITY) {
+    try {
+      console.log(`[${new Date().toISOString()}] Attempting analysis with model: ${modelName}`);
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const analysisText = result.response.text();
 
-    return {
-      domain,
-      scanId,
-      analysis: analysisText
-    };
-  } catch (err) {
-    if (err.status === 503) {
-      throw new Error("Gemini API is overloaded. Please try again later.");
+      console.log(`[${new Date().toISOString()}] Successfully generated analysis with model: ${modelName}`);
+      
+      return {
+        domain,
+        scanId,
+        analysis: analysisText
+      };
+    } catch (err) {
+      console.error(`[${new Date().toISOString()}] Model ${modelName} failed:`, err.message);
+      lastError = err;
+      
+      // If it's a rate limit or overload error, try next model
+      if (err.status === 503 || err.status === 429) {
+        continue;
+      }
+      
+      // For other errors, also try next model
+      continue;
     }
-    throw new Error(`AI analysis failed: ${err.message}`);
+  }
+
+    // All models failed - return special error
+    console.error(`[${new Date().toISOString()}] All Gemini models failed. Last error:`, lastError?.message);
+    const error = new Error("All AI models are currently unavailable");
+    error.code = AI_ANALYSIS_UNAVAILABLE_ERROR;
+    throw error;
+  } catch (err) {
+    // Catch ANY error that occurs during analysis
+    // This includes: missing API key, network errors, model errors, etc.
+    console.error(`[${new Date().toISOString()}] Analysis error caught:`, err.message);
+    
+    // If error already has the special code, re-throw it
+    if (err.code === AI_ANALYSIS_UNAVAILABLE_ERROR) {
+      throw err;
+    }
+    
+    // For any other error, wrap it with the special error code
+    const error = new Error("AI analysis is currently unavailable");
+    error.code = AI_ANALYSIS_UNAVAILABLE_ERROR;
+    error.originalError = err.message; // Keep original error for logging
+    throw error;
   }
 }
 

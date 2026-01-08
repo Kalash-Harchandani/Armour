@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { getCurrentUser } from '../services/api';
 
 const Home = () => {
   const [domain, setDomain] = useState('');
@@ -8,6 +10,7 @@ const Home = () => {
   const [showInfo, setShowInfo] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, updateUser, isAuthenticated } = useAuth();
 
   // Check for error from previous navigation
   useEffect(() => {
@@ -17,6 +20,23 @@ const Home = () => {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+  // Refresh user data to get updated scan limits (only if authenticated)
+  useEffect(() => {
+    const refreshUserData = async () => {
+      if (isAuthenticated) {
+        try {
+          const response = await getCurrentUser();
+          if (response.success) {
+            updateUser(response.user);
+          }
+        } catch (error) {
+          console.error('Failed to refresh user data:', error);
+        }
+      }
+    };
+    refreshUserData();
+  }, [updateUser, isAuthenticated]);
   
   const fullText = "Armour is built for beginners, developers, and security learners who want clear visibility into how a domain is exposed on the internet. Results are displayed in a structured dashboard and explained using AI-generated analysis to help you understand potential risks and misconfigurations.";
 
@@ -87,6 +107,19 @@ const Home = () => {
     
     if (!type) {
       setError('Please select a scan type');
+      return;
+    }
+
+    // Check if user is authenticated - redirect to login if not
+    if (!user || !isAuthenticated) {
+      navigate('/login', { state: { returnTo: '/loading', domain: trimmedDomain, scanType: type } });
+      return;
+    }
+
+    // Check scan limits
+    const remaining = user.scanLimits?.[type]?.remaining || 0;
+    if (remaining <= 0) {
+      setError(`You have reached your ${type} scan limit. Remaining: Quick: ${user.scanLimits?.quick?.remaining || 0}, Full: ${user.scanLimits?.full?.remaining || 0}`);
       return;
     }
     
@@ -209,13 +242,19 @@ const Home = () => {
                           setScanType('quick');
                           handleSubmit(e, 'quick');
                         }}
-                        className={`btn px-4 text-uppercase fw-bold scan-btn ${scanType === 'quick' ? 'btn-info' : 'btn-outline-info'}`}
+                        disabled={user && (user.scanLimits?.quick?.remaining || 0) <= 0}
+                        className={`btn px-4 text-uppercase fw-bold scan-btn ${scanType === 'quick' ? 'btn-info' : 'btn-outline-info'} ${user && (user.scanLimits?.quick?.remaining || 0) <= 0 ? 'disabled opacity-50' : ''}`}
                       >
                         <i className="fas fa-bolt me-2"></i>
                         Quick Scan
                         <small className="d-block mt-1" style={{ fontSize: '0.7rem', opacity: 0.8 }}>
                           ~90 seconds
                         </small>
+                        {user && (
+                          <small className="d-block mt-1 text-warning" style={{ fontSize: '0.65rem' }}>
+                            {user.scanLimits?.quick?.remaining || 0} remaining
+                          </small>
+                        )}
                       </button>
                       <button
                         type="button"
@@ -223,13 +262,19 @@ const Home = () => {
                           setScanType('full');
                           handleSubmit(e, 'full');
                         }}
-                        className={`btn px-4 text-uppercase fw-bold scan-btn ${scanType === 'full' ? 'btn-info' : 'btn-outline-info'}`}
+                        disabled={user && (user.scanLimits?.full?.remaining || 0) <= 0}
+                        className={`btn px-4 text-uppercase fw-bold scan-btn ${scanType === 'full' ? 'btn-info' : 'btn-outline-info'} ${user && (user.scanLimits?.full?.remaining || 0) <= 0 ? 'disabled opacity-50' : ''}`}
                       >
                         <i className="fas fa-search me-2"></i>
                         Full Scan
                         <small className="d-block mt-1" style={{ fontSize: '0.7rem', opacity: 0.8 }}>
                           300-500 seconds
                         </small>
+                        {user && (
+                          <small className="d-block mt-1 text-warning" style={{ fontSize: '0.65rem' }}>
+                            {user.scanLimits?.full?.remaining || 0} remaining
+                          </small>
+                        )}
                       </button>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { scanDomain, analyzeScan } from '../services/api';
 
 const Loading = () => {
@@ -8,7 +9,8 @@ const Loading = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const domain = location.state?.domain || '';
+  const { isAuthenticated } = useAuth();
+  const domain = location.state?.domain || localStorage.getItem('currentDomain') || '';
   const scanType = location.state?.scanType || localStorage.getItem('scanType') || 'quick';
   const hasStartedRef = useRef(false);
   const hasNavigatedRef = useRef(false);
@@ -24,6 +26,12 @@ const Loading = () => {
   ];
 
   useEffect(() => {
+    // Check authentication first
+    if (!isAuthenticated) {
+      navigate('/login', { state: { returnTo: '/loading', domain, scanType } });
+      return;
+    }
+
     if (!domain) {
       navigate('/');
       return;
@@ -85,39 +93,15 @@ const Loading = () => {
         localStorage.setItem('currentScanId', scanId);
         localStorage.setItem('scanData', JSON.stringify(scanResult.data));
         
-        setLoadingText('Scan completed! Running AI analysis...');
-        setProgress(85);
+        setLoadingText('Scan completed!');
+        setProgress(100);
 
         // Clean up scan flag immediately
         localStorage.removeItem(scanKey);
       
-        // Start analysis in background - don't wait for it
-        let analysisResult = null;
-        const analysisPromise = (async () => {
-          try {
-            setLoadingText('Running AI-powered analysis (this may take 30-60 seconds)...');
-            setProgress(90);
-            setError(null);
-            
-            analysisResult = await analyzeScan(scanId);
-            
-            setError(null);
-            localStorage.setItem(`geminiAnalysis_${domain}`, JSON.stringify(analysisResult));
-            
-            // Update analysis in localStorage if navigation already happened
-            const storedAnalysis = localStorage.getItem(`geminiAnalysis_${domain}`);
-            if (storedAnalysis) {
-              // Analysis completed, it's saved
-            }
-          } catch (analysisError) {
-            console.error('Analysis error:', analysisError);
-            // Analysis failed, but don't block - user can retry from dashboard
-          }
-        })();
-      
-        // Navigate immediately after scan completes (don't wait for analysis)
+        // Navigate immediately after scan completes
+        // Analysis will be generated manually by user clicking the button
       setLoadingText('Reconnaissance complete!');
-      setProgress(100);
         setError(null);
         
         // Save data to localStorage for dashboard to access
@@ -125,26 +109,21 @@ const Loading = () => {
           domain,
           scanId,
           scanData: scanResult.data,
-          analysis: analysisResult
+          analysis: null // No automatic analysis - user must click button
         };
         localStorage.setItem('dashboardData', JSON.stringify(dashboardData));
         
         // Navigate immediately - use multiple approaches to ensure it works
-        console.log('Attempting navigation to dashboard with scanId:', scanId);
-        console.log('hasNavigatedRef.current:', hasNavigatedRef.current);
-        
         if (!hasNavigatedRef.current) {
           hasNavigatedRef.current = true;
           
           // Use setTimeout to ensure state updates are complete
           setTimeout(() => {
             try {
-              console.log('Calling navigate with data:', { domain, scanId });
               navigate('/dashboard', { 
                 state: dashboardData,
                 replace: true
               });
-              console.log('Navigation called successfully');
             } catch (navError) {
               console.error('Navigation error:', navError);
               // Fallback to window.location if navigate fails
@@ -183,62 +162,70 @@ const Loading = () => {
       localStorage.removeItem(scanKey);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [domain, scanType, navigate]);
+  }, [domain, scanType, navigate, isAuthenticated]);
 
   return (
-    <div className="loading-page min-vh-100 d-flex align-items-center justify-content-center position-relative">
-      <div className="container text-center">
-        <div className="row justify-content-center">
-          <div className="col-lg-8">
-            {/* Domain Display */}
-            <div className="mb-5">
-              <h1 className="text-cyan display-4 fw-bold mb-3">
-                {domain}
+    <div className="home-page">
+      <section className="hero-section min-vh-100 d-flex align-items-center justify-content-center position-relative">
+        <div className="container text-center">
+          <div className="row justify-content-center">
+            <div className="col-lg-10">
+              {/* Main Heading */}
+              <h1 className="main-heading display-1 fw-bold mb-4">
+                <span className="text-cyan">ARMOUR</span>
               </h1>
-            </div>
+              
+              {/* Domain Display */}
+              <div className="mb-5 fade-in">
+                <p className="subheading lead mb-3 text-white">
+                  <i className="fas fa-globe me-2 text-cyan"></i>
+                  Scanning: <span className="text-cyan">{domain}</span>
+                </p>
+              </div>
 
-            {/* Minimalist Loading Animation */}
-            <div className="loading-animation mb-5">
-              <div className="minimal-spinner"></div>
-            </div>
+              {/* Minimalist Loading Animation */}
+              <div className="loading-animation mb-5 fade-in-delay">
+                <div className="minimal-spinner"></div>
+              </div>
 
-            {/* Loading Text */}
-            <div className="loading-text">
-              <p className="text-white fs-5 mb-4">{loadingText}</p>
-              {error && progress < 100 && (
-                <div className="alert alert-danger mt-3" role="alert">
-                  <i className="fas fa-exclamation-triangle me-2"></i>
-                  {error}
-                </div>
-              )}
-              {progress === 100 && (
-                <div className="mt-4">
-                  <button
-                    className="btn btn-info btn-lg"
-                    onClick={() => {
-                      const scanId = localStorage.getItem('currentScanId');
-                      const scanData = localStorage.getItem('scanData');
-                      const savedDomain = localStorage.getItem('currentDomain');
-                      
-                      navigate('/dashboard', {
-                        state: {
-                          domain: savedDomain || domain,
-                          scanId,
-                          scanData: scanData ? JSON.parse(scanData) : null
-                        },
-                        replace: true
-                      });
-                    }}
-                  >
-                    <i className="fas fa-arrow-right me-2"></i>
-                    View Results
-                  </button>
-                </div>
-              )}
+              {/* Loading Text */}
+              <div className="loading-text fade-in-delay-2">
+                <p className="text-white fs-5 mb-4">{loadingText}</p>
+                {error && progress < 100 && (
+                  <div className="alert alert-danger mt-3 bg-dark border-danger" role="alert">
+                    <i className="fas fa-exclamation-triangle me-2"></i>
+                    {error}
+                  </div>
+                )}
+                {progress === 100 && (
+                  <div className="mt-4">
+                    <button
+                      className="btn btn-outline-cyan btn-lg"
+                      onClick={() => {
+                        const scanId = localStorage.getItem('currentScanId');
+                        const scanData = localStorage.getItem('scanData');
+                        const savedDomain = localStorage.getItem('currentDomain');
+                        
+                        navigate('/dashboard', {
+                          state: {
+                            domain: savedDomain || domain,
+                            scanId,
+                            scanData: scanData ? JSON.parse(scanData) : null
+                          },
+                          replace: true
+                        });
+                      }}
+                    >
+                      <i className="fas fa-arrow-right me-2"></i>
+                      View Results
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

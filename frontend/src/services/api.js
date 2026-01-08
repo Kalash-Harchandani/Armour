@@ -6,6 +6,13 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 /**
+ * Get JWT token from localStorage
+ */
+function getToken() {
+  return localStorage.getItem('authToken');
+}
+
+/**
  * Make API request with error handling and extended timeout for long operations
  */
 async function apiRequest(endpoint, options = {}) {
@@ -13,12 +20,20 @@ async function apiRequest(endpoint, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), options.timeout || 600000); // 10 minutes default
 
+  // Get token and add to headers if available
+  const token = getToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       signal: controller.signal,
       ...options,
     });
@@ -27,6 +42,25 @@ async function apiRequest(endpoint, options = {}) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
+      
+      // Handle authentication errors
+      if (response.status === 401) {
+        // Clear invalid token
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        // Redirect to login if not already there
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
+      
+      // Handle AI analysis unavailable error (503 with special error code)
+      if (response.status === 503 && errorData.error === 'AI_ANALYSIS_UNAVAILABLE') {
+        const error = new Error(errorData.message || 'AI analysis is currently unavailable');
+        error.code = 'AI_ANALYSIS_UNAVAILABLE';
+        throw error;
+      }
+      
       throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
     }
 
@@ -108,5 +142,37 @@ export async function getScan(scanId) {
  */
 export async function getAnalysis(scanId) {
   return apiRequest(`/analysis/${scanId}`);
+}
+
+/**
+ * Get current user information
+ * @returns {Promise<Object>} User data
+ */
+export async function getCurrentUser() {
+  return apiRequest('/auth/me');
+}
+
+/**
+ * Get all scans for the current user
+ * @returns {Promise<Object>} List of scans
+ */
+export async function getUserScans() {
+  return apiRequest('/scans');
+}
+
+/**
+ * Logout user
+ * @returns {Promise<Object>} Logout response
+ */
+export async function logout() {
+  try {
+    await apiRequest('/auth/logout', { method: 'POST' });
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    // Always clear local storage
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+  }
 }
 
