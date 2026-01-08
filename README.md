@@ -278,10 +278,6 @@ PORT=5002
 - ✅ No hardcoded credentials
 - ✅ Secure error messages
 
-## License
-
-ISC
-
 ## Contributing
 
 Contributions are welcome! Please follow these guidelines:
