@@ -159,8 +159,8 @@ SESSION_SECRET=your-very-secure-random-session-secret-key-change-this
 FRONTEND_URL=http://localhost:3000
 
 # MongoDB
-MONGODB_URI=mongodb://localhost:27017/armour
-# OR for Atlas: mongodb+srv://username:password@cluster.mongodb.net/armour
+MONGODB_URI=your_mongo_db_uri
+# OR for Atlas: mongodb+your_mongo_db_uri
 
 # Gemini API
 GEMINI_API_KEY=your_gemini_api_key_here

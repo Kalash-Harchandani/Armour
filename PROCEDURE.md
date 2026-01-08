@@ -110,7 +110,7 @@ npm install
 
 - Handles MongoDB connection using Mongoose
 - Reads `MONGODB_URI` from environment variables
-- Default: `mongodb://localhost:27017/armour`
+- Default: `mongodb://localhost:27xxx/xxx`
 - Connects on server start
 
 ### Step 3: Created Mongoose Models
@@ -222,12 +222,12 @@ Added MongoDB connection string:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 PORT=5002
-MONGODB_URI=mongodb://localhost:27017/armour
+MONGODB_URI=your_mongo_db_uri
 ```
 
 For MongoDB Atlas (cloud):
 ```env
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/armour
+MONGODB_URI=mongodb+your_mongo_db_uri
 ```
 
 ### Step 6: MongoDB Setup
