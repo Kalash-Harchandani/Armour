@@ -1,3 +1,6 @@
+
+![ScreenRecording2026-01-08at4 26 56PM-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/e8a73f0c-ef6a-421f-bad7-6261af559c80)
+
 # Armour 🛡️
 
 **Advanced Domain Intelligence & Reconnaissance Platform**
@@ -277,10 +280,6 @@ PORT=5002
 - ✅ CORS protection
 - ✅ No hardcoded credentials
 - ✅ Secure error messages
-
-## License
-
-ISC
 
 ## Contributing
 
