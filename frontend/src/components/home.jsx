@@ -50,7 +50,7 @@ const Home = () => {
     // Allows: letters, numbers, hyphens, dots
     // Must have at least one dot
     // TLD must be at least 2 characters
-    const domainPattern = /^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
+    const domainPattern = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
     
     if (!cleanDomain) {
       return 'Please enter a domain';

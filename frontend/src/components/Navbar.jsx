@@ -75,6 +75,7 @@ const Navbar = () => {
                       id="navbarDropdown"
                       role="button"
                       data-bs-toggle="dropdown"
+                      onClick={(e) => e.preventDefault()}
                       aria-expanded="false"
                     >
                       {user.picture && !imageError ? (

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { scanDomain, analyzeScan } from '../services/api';
+import { scanDomain } from '../services/api';
 
 const Loading = () => {
   const [loadingText, setLoadingText] = useState('Initializing reconnaissance...');
