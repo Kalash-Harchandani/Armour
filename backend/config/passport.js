@@ -7,46 +7,51 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/User.js";
 
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_URL || "http://localhost:5002"}/api/auth/google/callback`,
-    },
-    async (accessToken, refreshToken, profile, done) => {
-      try {
-        // Check if user already exists
-        let user = await User.findOne({ googleId: profile.id });
+// Only initialize Google OAuth strategy if credentials are provided
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_URL || "http://localhost:5002"}/api/auth/google/callback`,
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          // Check if user already exists
+          let user = await User.findOne({ googleId: profile.id });
 
-        if (user) {
-          // User exists, return user
-          return done(null, user);
-        } else {
-          // Create new user
-          user = new User({
-            googleId: profile.id,
-            email: profile.emails[0].value,
-            name: profile.displayName,
-            picture: profile.photos[0]?.value,
-            scanLimits: {
-              quickScansUsed: 0,
-              fullScansUsed: 0,
-              quickScansLimit: 3,
-              fullScansLimit: 2,
-            },
-          });
+          if (user) {
+            // User exists, return user
+            return done(null, user);
+          } else {
+            // Create new user
+            user = new User({
+              googleId: profile.id,
+              email: profile.emails[0].value,
+              name: profile.displayName,
+              picture: profile.photos[0]?.value,
+              scanLimits: {
+                quickScansUsed: 0,
+                fullScansUsed: 0,
+                quickScansLimit: 3,
+                fullScansLimit: 2,
+              },
+            });
 
-          await user.save();
-          return done(null, user);
+            await user.save();
+            return done(null, user);
+          }
+        } catch (error) {
+          console.error("Passport strategy error:", error);
+          return done(error, null);
         }
-      } catch (error) {
-        console.error("Passport strategy error:", error);
-        return done(error, null);
       }
-    }
-  )
-);
+    )
+  );
+} else {
+  console.warn("⚠️  Google OAuth credentials not provided. OAuth authentication will not be available.");
+}
 
 // Serialize user for session
 passport.serializeUser((user, done) => {
