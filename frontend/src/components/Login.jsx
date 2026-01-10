@@ -22,7 +22,7 @@ const Login = () => {
 
   const handleGoogleLogin = () => {
     // Redirect to backend Google OAuth endpoint
-    const backendUrl = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
+    const backendUrl = process.env.REACT_APP_API_URL;
     window.location.href = `${backendUrl}/auth/google`;
   };
 

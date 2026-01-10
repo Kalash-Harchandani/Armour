@@ -77,11 +77,11 @@ app.get(
       const token = generateToken(req.user._id);
 
       // Redirect to frontend with token
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const frontendUrl = process.env.FRONTEND_URL;
       res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
     } catch (error) {
       console.error("Auth callback error:", error);
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const frontendUrl = process.env.FRONTEND_URL;
       res.redirect(`${frontendUrl}/auth/callback?error=authentication_failed`);
     }
   }

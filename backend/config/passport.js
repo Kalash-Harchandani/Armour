@@ -14,7 +14,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_URL || "http://localhost:5002"}/api/auth/google/callback`,
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_URL `,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
