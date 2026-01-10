@@ -23,9 +23,11 @@ const Login = () => {
   }, [isAuthenticated, navigate, location.state]);
 
     const handleGoogleLogin = () => {
-        console.log("Google login clicked");
-        window.location.href = `${backendUrl}/auth/google`;
-      };
+      console.log("Google login clicked");
+      console.log("backendUrl =", backendUrl);
+      window.location.href = `${backendUrl}/auth/google`;
+    };
+
 
 
   return (
