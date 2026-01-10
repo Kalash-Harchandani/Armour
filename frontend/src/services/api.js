@@ -3,10 +3,10 @@
  * Centralized API calls to the Armour backend
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL;
-if (!API_BASE_URL) {
-  throw new Error("REACT_APP_API_URL is not defined");
-}
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL || "https://api.wearearmour.in/api";
+
+export default API_BASE_URL;
 
 
 /**

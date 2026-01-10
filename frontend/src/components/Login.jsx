@@ -3,9 +3,11 @@
  * Google OAuth login page - matches home page theme
  */
 
+
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import backendUrl from "../config/api";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -21,12 +23,6 @@ const Login = () => {
   }, [isAuthenticated, navigate, location.state]);
 
   const handleGoogleLogin = () => {
-    // Redirect to backend Google OAuth endpoint
-    const backendUrl = process.env.REACT_APP_API_URL ;
-    if (!backendUrl) {
-      throw new Error("REACT_APP_API_URL is not defined");
-    }
-
     window.location.href = `${backendUrl}/auth/google`;
   };
 
