@@ -22,7 +22,11 @@ const Login = () => {
 
   const handleGoogleLogin = () => {
     // Redirect to backend Google OAuth endpoint
-    const backendUrl = process.env.REACT_APP_API_URL;
+    const backendUrl = process.env.REACT_APP_API_URL ;
+    if (!backendUrl) {
+      throw new Error("REACT_APP_API_URL is not defined");
+    }
+
     window.location.href = `${backendUrl}/auth/google`;
   };
 
