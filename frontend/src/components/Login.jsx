@@ -22,11 +22,11 @@ const Login = () => {
     }
   }, [isAuthenticated, navigate, location.state]);
 
-    const handleGoogleLogin = () => {
-      console.log("Google login clicked");
-      console.log("backendUrl =", backendUrl);
-      window.location.href = `${backendUrl}/auth/google`;
-    };
+  // Handle Google Login
+  const handleGoogleLogin = () => {
+    window.location.assign("https://api.wearearmour.in/api/auth/google");
+  };
+
 
 
 
