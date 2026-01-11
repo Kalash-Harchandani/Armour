@@ -23,13 +23,25 @@ const app = express();
 const PORT = process.env.PORT || 5002;
 
 // Middleware
+const allowedOrigins = [
+  "https://wearearmour.in",
+  "https://www.wearearmour.in"
+];
+
 app.use(cors({
-  origin: [
-    "https://wearearmour.in",
-    "https://www.wearearmour.in"
-  ],
+  origin: function (origin, callback) {
+    // allow non-browser requests (curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, origin); // 👈 echo back exact origin
+    } else {
+      return callback(new Error("CORS not allowed"), false);
+    }
+  },
   credentials: true
 }));
+
 app.use(express.json());
 
 
