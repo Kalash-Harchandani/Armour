@@ -3,15 +3,15 @@
  * Manages user authentication state and provides auth methods
  */
 
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { getCurrentUser, logout as apiLogout } from '../services/api';
+import React, { createContext, useState, useEffect, useContext } from "react";
+import { getCurrentUser, logout as apiLogout } from "../services/api";
 
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
@@ -21,56 +21,46 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check if user is authenticated on mount
+  // 🔑 Run ONCE on app load
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    const savedUser = localStorage.getItem('user');
+    const token = localStorage.getItem("authToken");
 
-    if (token && savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
-        
-        // Verify token is still valid
-        getCurrentUser()
-          .then((response) => {
-            if (response.success) {
-              setUser(response.user);
-              localStorage.setItem('user', JSON.stringify(response.user));
-            } else {
-              // Token invalid, clear auth
-              clearAuth();
-            }
-          })
-          .catch(() => {
-            // Token invalid, clear auth
-            clearAuth();
-          })
-          .finally(() => {
-            setLoading(false);
-          });
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-        clearAuth();
-        setLoading(false);
-      }
-    } else {
+    if (!token) {
       setLoading(false);
+      return;
     }
+
+    // Token exists → user is authenticated
+    setIsAuthenticated(true);
+
+    // Fetch user from backend
+    getCurrentUser()
+      .then((response) => {
+        if (response.success) {
+          setUser(response.user);
+          localStorage.setItem("user", JSON.stringify(response.user));
+        } else {
+          clearAuth();
+        }
+      })
+      .catch(() => {
+        clearAuth();
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const clearAuth = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
     setUser(null);
     setIsAuthenticated(false);
   };
 
-  const login = (token, userData) => {
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
+  // 🔑 LOGIN ONLY STORES TOKEN
+  const login = (token) => {
+    localStorage.setItem("authToken", token);
     setIsAuthenticated(true);
   };
 
@@ -81,7 +71,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateUser = (userData) => {
     setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem("user", JSON.stringify(userData));
   };
 
   const value = {
@@ -95,4 +85,3 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
