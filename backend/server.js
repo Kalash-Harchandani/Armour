@@ -24,10 +24,14 @@ const PORT = process.env.PORT || 5002;
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: [
+    "https://wearearmour.in",
+    "https://www.wearearmour.in"
+  ],
   credentials: true
 }));
 app.use(express.json());
+
 
 // Session configuration
 // WARNING: Default secret is for development only. Always set SESSION_SECRET in production .env file!
