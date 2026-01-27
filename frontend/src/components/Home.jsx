@@ -228,8 +228,8 @@ const Home = () => {
                         <div className="scan-info-tooltip">
                           <div className="tooltip-content">
                             <h6 className="mb-2 text-cyan">Scan Types</h6>
-                            <p className="mb-2"><strong>Quick Scan:</strong> Quick overview scan covering essential security checks for the domain.</p>
-                            <p className="mb-0"><strong>Full Scan:</strong> Comprehensive scan that depends on the range of the domain entered.</p>
+                            <p className="mb-2"><strong>Quick Scan:</strong> Fast scan that completes in approximately 90 seconds.</p>
+                            <p className="mb-0"><strong>Full Scan:</strong> Comprehensive scan that depends on the range of the domain entered. Can take anywhere from 300 to 500 seconds.</p>
                           </div>
                         </div>
                       )}
@@ -247,7 +247,9 @@ const Home = () => {
                       >
                         <i className="fas fa-bolt me-2"></i>
                         Quick Scan
-                        
+                        <small className="d-block mt-1" style={{ fontSize: '0.7rem', opacity: 0.8 }}>
+                          ~90 seconds
+                        </small>
                         {user && (
                           <small className="d-block mt-1 text-warning" style={{ fontSize: '0.65rem' }}>
                             {user.scanLimits?.quick?.remaining || 0} remaining
@@ -265,7 +267,9 @@ const Home = () => {
                       >
                         <i className="fas fa-search me-2"></i>
                         Full Scan
-                  
+                        <small className="d-block mt-1" style={{ fontSize: '0.7rem', opacity: 0.8 }}>
+                          300-500 seconds
+                        </small>
                         {user && (
                           <small className="d-block mt-1 text-warning" style={{ fontSize: '0.65rem' }}>
                             {user.scanLimits?.full?.remaining || 0} remaining

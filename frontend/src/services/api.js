@@ -84,7 +84,7 @@ async function apiRequest(endpoint, options = {}) {
     
     // Check if it's a network/fetch error
     if (error instanceof TypeError || error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
-      throw new Error('Network error: Could not connect to the server. Make sure the backend is running on port 5002.');
+      throw new Error('Network error: The selected domain is too large to complete a full scan. We recommend running a Quick Scan.');
     }
     
     // Generic error fallback
