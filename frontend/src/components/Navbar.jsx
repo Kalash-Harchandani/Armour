@@ -69,13 +69,11 @@ const Navbar = () => {
                 </li>
                 {user && (
                   <li className="nav-item dropdown">
-                    <a
-                      className="nav-link dropdown-toggle text-white"
-                      href="#"
+                    <button
+                      className="nav-link dropdown-toggle text-white bg-transparent border-0"
                       id="navbarDropdown"
-                      role="button"
+                      type="button"
                       data-bs-toggle="dropdown"
-                      onClick={(e) => e.preventDefault()}
                       aria-expanded="false"
                     >
                       {user.picture && !imageError ? (
@@ -100,7 +98,7 @@ const Navbar = () => {
                         </div>
                       )}
                       {user.name}
-                    </a>
+                    </button>
                     <ul className="dropdown-menu dropdown-menu-end bg-dark border-secondary">
                       <li>
                         <div className="dropdown-item-text text-white px-3">
