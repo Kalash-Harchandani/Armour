@@ -1,0 +1,17 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="256" height="256" rx="48" fill="#0A0A0A"/>
+
+  <!-- Simple shield outline -->
+  <path d="M128 40 L192 64 V112 
+           C192 168 160 200 128 216 
+           C96 200 64 168 64 112 
+           V64 Z"
+        fill="none"
+        stroke="#FFFFFF"
+        stroke-width="12"/>
+
+  <!-- Minimal A -->
+  <path d="M128 90 L150 150 H138 L132 130 H124 L118 150 H106 Z"
+        fill="#FFFFFF"/>
+</svg>

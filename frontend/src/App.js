@@ -10,12 +10,13 @@ import Login from './components/Login';
 import AuthCallback from './components/AuthCallback';
 import PastScans from './components/PastScans';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="App">
+        <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
           <Navbar />
           <Routes>
             <Route path="/" element={<Home />} />
@@ -46,6 +47,7 @@ function App() {
               }
             />
           </Routes>
+          <Footer />
         </div>
       </Router>
     </AuthProvider>
